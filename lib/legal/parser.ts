@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { LegalDocumentMeta, getLegalDocumentBySlug } from "./registry";
+import { LEGAL_DOCS_CONTENT } from "./legalContent";
 
 export interface TableOfContentItem {
   id: string;
@@ -87,12 +88,15 @@ function formatInlineText(text: string): string {
 }
 
 export function parseLegalMarkdown(doc: LegalDocumentMeta): ParsedLegalDocument {
+  let rawMarkdown = LEGAL_DOCS_CONTENT[doc.filename] || "";
+
   const filePath = path.join(process.cwd(), doc.filename);
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Fichier markdown introuvable : ${filePath}`);
+  if (fs.existsSync(filePath)) {
+    rawMarkdown = fs.readFileSync(filePath, "utf8");
+  } else if (!rawMarkdown) {
+    throw new Error(`Document introuvable : ${doc.filename}`);
   }
 
-  const rawMarkdown = fs.readFileSync(filePath, "utf8");
   const lines = rawMarkdown.split("\n");
 
   let extractedTitle = doc.title;
