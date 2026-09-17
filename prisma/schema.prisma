@@ -1,0 +1,311 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  passwordHash          String?
+  name                  String?
+  image                 String?
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  isAdmin               Boolean   @default(false)
+  isSuspended           Boolean   @default(false)
+  referredByPartnerId   String?
+  referredByPartner     Affiliate? @relation("AffiliateReferrals", fields: [referredByPartnerId], references: [id], onDelete: SetNull)
+  referredAt            DateTime?
+
+  accounts            Account[]
+  sessions            Session[]
+  voiceProfile        VoiceProfile?
+  personalityProfile  PersonalityProfile?
+  posts               Post[]
+  subscription        Subscription?
+  affiliateProfile    Affiliate? @relation("UserAffiliate")
+  repurposeBatches    RepurposeBatch[]
+}
+
+// Modèles requis par Auth.js — ne pas modifier la forme
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model VoiceProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  styleExamples     Json      // string[]
+  styleEmbedding    Unsupported("vector(1024)")?  // moyenne des embeddings Voyage des exemples
+  directness        Float?    // 0-1
+  storytelling      Float?
+  formality         Float?
+  humor             Float?
+  technicality      Float?
+  emotionality      Float?
+  preferredPhrases  Json?     // string[]
+  avoidedPhrases    Json?     // string[]
+  consistencyScore  Float?    // 0-100, recalculé à chaque nouveau post accepté
+  completeness      Float?    // 0-100, % de champs renseignés
+  updatedAt         DateTime  @updatedAt
+}
+
+model PersonalityProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  directness          Float?
+  storytelling        Float?
+  formality           Float?
+  humor               Float?
+  technicality        Float?
+  emotionalExpression Float?
+  opinionStrength     Float?
+  vulnerability       Float?
+  updatedAt           DateTime @updatedAt
+}
+
+model Post {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idea              String   @db.Text
+  format            String   // text|story|educational|opinion|case_study|personal_experience
+  tone              String   // direct|conversational|professional|provocative|thoughtful
+  content           String   @db.Text
+  status            String   @default("draft") // draft|completed|archived
+  voiceMatchScore   Int?
+  genericityScore   Int?
+  clicheScore       Int?
+  specificityScore  Int?
+  iterations        Int      @default(0)
+  flagged           Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  feedback          PostFeedback?
+
+  @@index([userId, status])
+}
+
+model PostFeedback {
+  id           String   @id @default(cuid())
+  postId       String   @unique
+  post         Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  soundsLikeMe Boolean
+  reasons      Json?    // string[] parmi: too_formal|too_generic|not_me|too_long|wrong_tone|other
+  createdAt    DateTime @default(now())
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  plan                 String    @default("free") // free|pro|promax
+  status               String    @default("active")
+  postsUsedThisMonth      Int       @default(0)
+  repurposesUsedThisMonth Int       @default(0)
+  currentPeriodStart      DateTime  @default(now()) // sert au reset mensuel du quota, y compris pour le plan free (sans event Stripe)
+  renewalDate             DateTime?
+  updatedAt               DateTime  @updatedAt
+}
+
+// ==========================================
+// MODULE ATOMISEUR (Repurposing de Contenu)
+// ==========================================
+
+model RepurposeBatch {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceType    String   // 'url' | 'youtube' | 'text' | 'file'
+  sourceTitle   String?
+  sourceUrl     String?
+  sourceContent String   @db.Text
+  planSnapshot  String   // 'free' | 'pro' | 'promax'
+  data          Json     // { posts, carousels, hooks, opinions, caseStudies, comments }
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+
+// ==========================================
+// MODULE PARTENAIRE (Affiliation 30% à vie)
+// ==========================================
+
+model Affiliate {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  user             User      @relation("UserAffiliate", fields: [userId], references: [id], onDelete: Cascade)
+  code             String    @unique // slug unique de parrainage
+  name             String
+  email            String
+  commissionRate   Float     @default(30.0) // taux en %
+  availableBalance Float     @default(0.0)  // solde retirable immédiatement
+  pendingDebt      Float     @default(0.0)  // dette temporaire chargeback/remboursement
+  payoutMethod     String    @default("mobile_money") // mobile_money | bank
+  payoutDetails    Json      @default("{}")
+  codeModified     Boolean   @default(false) // limite la personnalisation du slug à 1 fois
+  isActive         Boolean   @default(true)  // suspension administrative
+  totalClicks      Int       @default(0)
+  totalSignups     Int       @default(0)
+  totalConversions Int       @default(0)
+  totalEarned      Float     @default(0.0)
+  pendingPayout    Float     @default(0.0)
+  status           String    @default("active") // active | paused
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  referrals        User[]    @relation("AffiliateReferrals")
+  clicks           AffiliateClick[]
+  commissions      AffiliateCommission[]
+  payouts          AffiliatePayout[]
+
+  @@index([userId])
+  @@index([code])
+}
+
+model AffiliateClick {
+  id          String    @id @default(cuid())
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  referrer    String?
+  source      String?
+  ipHash      String?
+  createdAt   DateTime  @default(now())
+
+  @@index([affiliateId])
+  @@index([createdAt])
+}
+
+model AffiliateCommission {
+  id               String    @id @default(cuid())
+  affiliateId      String
+  affiliate        Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  payerUserId      String?
+  txRef            String    @unique // Clé stricte d'idempotence
+  orderAmount      Float
+  commissionRate   Float     @default(30.0)
+  commissionAmount Float
+  currency         String    @default("USD")
+  status           String    @default("pending") // pending | available | paid | canceled
+  releaseAt        DateTime  // Date transaction + 30 jours (gel anti-litige)
+  details          Json?     @default("{}")
+  createdAt        DateTime  @default(now())
+
+  @@index([affiliateId])
+  @@index([status])
+  @@index([releaseAt])
+}
+
+model AffiliatePayout {
+  id             String    @id @default(cuid())
+  affiliateId    String
+  affiliate      Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  amount         Float
+  currency       String    @default("USD")
+  reference      String    @unique // Référence unique du retrait
+  status         String    @default("pending") // pending | successful | failed
+  payoutMethod   String    // mobile_money | bank
+  accountDetails Json      @default("{}")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([affiliateId])
+}
+
+// ==========================================
+// MODULE DASHBOARD ADMINISTRATEUR
+// ==========================================
+
+model AdminPricingConfig {
+  id                 String   @id @default("default")
+  sprintPrice        Float    @default(13.0)
+  monthlyPrice       Float    @default(22.0)
+  lifetimePrice      Float    @default(69.0)
+  founderQuotaTotal  Int      @default(200)
+  founderQuotaUsed   Int      @default(0)
+  updatedAt          DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  adminEmail   String
+  action       String
+  targetUserId String?
+  details      Json?    @default("{}")
+  ipAddress    String?
+  severity     String   @default("info") // info | warning | critical
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model AiUsageLog {
+  id               String   @id @default(cuid())
+  userId           String
+  userEmail        String?
+  operation        String
+  model            String   @default("deepseek-chat")
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  estimatedCostUsd Float    @default(0.0)
+  isFreeUser       Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AdminSystemConfig {
+  id                     String   @id @default("default")
+  rateLimitCapacity      Int      @default(80)
+  rateLimitDurationHours Int      @default(5)
+  rateLimitEnabled       Boolean  @default(true)
+  updatedAt              DateTime @updatedAt
+}
+
