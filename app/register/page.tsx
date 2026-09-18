@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { Zap } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
@@ -14,6 +15,28 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleDevBypass = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await signIn("credentials", {
+        isDevBypass: "true",
+        redirect: false,
+        callbackUrl: "/app",
+      });
+      if (res?.error) {
+        setError(res.error || "Erreur de connexion dev");
+      } else {
+        router.push("/app");
+        router.refresh();
+      }
+    } catch {
+      setError("Erreur inattendue lors de la connexion dev.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +106,19 @@ export default function RegisterPage() {
           <p className="text-xs text-ink-quiet">Your Voice. Your Ideas.</p>
           <h1 className="text-lg font-semibold text-ink pt-3">Créer un compte</h1>
         </div>
+
+        {/* Bouton Dev Bypass (Uniquement en développement) */}
+        {process.env.NODE_ENV !== "production" && (
+          <button
+            type="button"
+            onClick={handleDevBypass}
+            disabled={loading}
+            className="w-full py-2.5 px-4 bg-warn/15 hover:bg-warn/25 text-ink border border-warn/40 rounded-input text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+          >
+            <Zap className="w-4 h-4 text-warn fill-warn" />
+            <span>Mode Dev : Accès Immédiat (Admin & ProMax)</span>
+          </button>
+        )}
 
         {/* Bouton Google */}
         <Button

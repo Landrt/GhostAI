@@ -92,6 +92,23 @@ export function middleware(req: NextRequest) {
     req.cookies.get("next-auth.session-token")?.value ||
     req.cookies.get("__Secure-next-auth.session-token")?.value;
 
+  // Mode Développeur : Auto-Bypass d'authentification si DEV_BYPASS_AUTH=true ou ?dev=true
+  const isDev = process.env.NODE_ENV !== "production";
+  const devBypassEnabled = process.env.DEV_BYPASS_AUTH === "true";
+  const hasDevQuery = req.nextUrl.searchParams.get("dev") === "true";
+  const shouldAutoBypass = isDev && (devBypassEnabled || hasDevQuery);
+
+  if (
+    shouldAutoBypass &&
+    !token &&
+    (pathname.startsWith("/app") || pathname.startsWith("/admin")) &&
+    !pathname.startsWith("/api/")
+  ) {
+    const bypassUrl = new URL("/dev-bypass", req.url);
+    bypassUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(bypassUrl);
+  }
+
   // 1. Protection stricte des routes d'administration /admin/* et /api/admin/*
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     if (!token) {

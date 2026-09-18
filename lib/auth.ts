@@ -5,6 +5,7 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { loginSchema } from "./validation";
+import { getOrCreateDevUser, DEV_USER_EMAIL } from "./devBypass";
 
 export const {
   handlers: { GET, POST },
@@ -35,8 +36,24 @@ export const {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Mot de passe", type: "password" },
+        isDevBypass: { label: "Dev Bypass", type: "text" },
       },
       async authorize(credentials) {
+        // Bypass Développeur en local : accès immédiat au superadmin sans mot de passe
+        if (
+          process.env.NODE_ENV !== "production" &&
+          ((credentials as any)?.isDevBypass === "true" ||
+            (credentials as any)?.email?.toLowerCase() === DEV_USER_EMAIL)
+        ) {
+          const devUser = await getOrCreateDevUser();
+          return {
+            id: devUser.id,
+            email: devUser.email,
+            name: devUser.name,
+            image: devUser.image,
+          };
+        }
+
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) {
           return null;
