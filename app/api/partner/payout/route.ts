@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getOrCreatePartner, requestPayout } from "@/lib/partner";
+import { getOrCreatePartner, requestPayout, MIN_PAYOUT_AMOUNT } from "@/lib/partner";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -16,9 +16,9 @@ export async function POST(req: Request) {
     const payoutMethod = body.payoutMethod;
     const accountDetails = body.accountDetails;
 
-    if (!amount || isNaN(amount) || amount < 20) {
+    if (!amount || isNaN(amount) || amount < MIN_PAYOUT_AMOUNT) {
       return NextResponse.json(
-        { error: "Le montant minimum de retrait est de 20,00 $." },
+        { error: `Le montant minimum de retrait est de ${MIN_PAYOUT_AMOUNT},00 $.` },
         { status: 400 }
       );
     }

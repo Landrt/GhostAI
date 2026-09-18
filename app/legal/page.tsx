@@ -68,7 +68,7 @@ export default function LegalHubPage() {
             </div>
             <h3 className="font-serif font-bold text-sm text-ink">30% de Commission à Vie</h3>
             <p className="text-xs text-ink-quiet leading-relaxed">
-              Programme d&apos;affiliation équitable avec tracking 60 jours, déblocage transparent à 30 jours et retraits automatisés dès 20 $.
+              Programme d&apos;affiliation équitable avec tracking 60 jours, déblocage transparent à 30 jours et retraits dès 75 $.
             </p>
           </div>
 

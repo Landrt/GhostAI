@@ -19,6 +19,11 @@ import {
   CheckCircle2,
   FileText,
   ExternalLink,
+  Video,
+  Play,
+  Flame,
+  AlertTriangle,
+  Calendar,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -34,7 +39,12 @@ export default function PartnerPage() {
   const [slugError, setSlugError] = useState("");
   const [slugSubmitting, setSlugSubmitting] = useState(false);
 
-  const [payoutAmount, setPayoutAmount] = useState<number>(20);
+  // Soumission des vidéos hebdomadaires
+  const [videoInputs, setVideoInputs] = useState<string[]>(["", "", ""]);
+  const [videoSubmitting, setVideoSubmitting] = useState(false);
+  const [videoMessage, setVideoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const [payoutAmount, setPayoutAmount] = useState<number>(75);
   const [payoutMethod, setPayoutMethod] = useState<"mobile_money" | "bank">("mobile_money");
   const [payoutDetails, setPayoutDetails] = useState({
     operator: "Orange Money",
@@ -143,8 +153,8 @@ export default function PartnerPage() {
     e.preventDefault();
     setPayoutMessage(null);
 
-    if (payoutAmount < 20) {
-      setPayoutMessage({ type: "error", text: "Le seuil minimum de retrait est de 20,00 $." });
+    if (payoutAmount < 75) {
+      setPayoutMessage({ type: "error", text: "Le seuil minimum de retrait est de 75,00 $." });
       return;
     }
 
@@ -179,6 +189,46 @@ export default function PartnerPage() {
       setPayoutMessage({ type: "error", text: err.message || "Erreur lors du retrait." });
     } finally {
       setPayoutSubmitting(false);
+    }
+  };
+
+  const handleVideosSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVideoMessage(null);
+
+    const validUrls = videoInputs.map((u) => u.trim()).filter(Boolean);
+    if (validUrls.length === 0) {
+      setVideoMessage({ type: "error", text: "Veuillez renseigner au moins une URL de vidéo." });
+      return;
+    }
+
+    try {
+      setVideoSubmitting(true);
+      const res = await fetch("/api/partner", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "submit_weekly_videos",
+          urls: validUrls,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setVideoMessage({ type: "error", text: data.error || "Erreur lors de l'enregistrement des vidéos." });
+        return;
+      }
+
+      setVideoMessage({
+        type: "success",
+        text: `${data.result.added} vidéo(s) enregistrée(s) avec succès pour cette semaine ! Total : ${data.result.totalThisWeek}/${data.result.required}`,
+      });
+      setVideoInputs(["", "", ""]);
+      await fetchData();
+    } catch (err: any) {
+      setVideoMessage({ type: "error", text: err.message || "Erreur de communication." });
+    } finally {
+      setVideoSubmitting(false);
     }
   };
 
@@ -235,9 +285,9 @@ export default function PartnerPage() {
             </div>
             <div className="p-4 bg-paper rounded-input border border-line/60 space-y-2">
               <div className="w-8 h-8 rounded-full bg-ink/10 text-ink flex items-center justify-center font-bold text-sm">
-                20$
+                75$
               </div>
-              <h3 className="font-semibold text-sm text-ink">Retraits dès 20 $</h3>
+              <h3 className="font-semibold text-sm text-ink">Retraits dès 75 $</h3>
               <p className="text-xs text-ink-quiet leading-relaxed">
                 Versement rapide par Mobile Money (Orange, MTN, Wave) ou Virement bancaire direct.
               </p>
@@ -249,26 +299,32 @@ export default function PartnerPage() {
             <div className="bg-paper/70 border-2 border-line rounded-card p-5 space-y-4">
               <div className="flex items-center gap-2 text-ink font-semibold text-sm">
                 <ShieldCheck className="w-5 h-5 text-mark" />
-                <span>Cadre Juridique & Conditions d&apos;Éligibilité de l&apos;Affilié</span>
+                <span>Cadre Juridique, Éligibilité & Engagement d&apos;Activité</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-ink-quiet">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs text-ink-quiet">
                 <div className="p-3 bg-surface rounded-input border border-line/50 space-y-1">
-                  <span className="font-semibold text-ink block">Liberté & Marque</span>
+                  <span className="font-semibold text-ink block">3 Vidéos / Semaine</span>
                   <p className="text-[11px] leading-relaxed">
-                    Liberté de création totale pour promouvoir GhostAI, sous réserve de ne pas altérer son image ou induire en erreur.
+                    Obligation de soumettre 3 vidéos promotionnelles par semaine (lundi au dimanche) pour maintenir son éligibilité.
                   </p>
                 </div>
                 <div className="p-3 bg-surface rounded-input border border-line/50 space-y-1">
-                  <span className="font-semibold text-ink block">Décharge de Responsabilité</span>
+                  <span className="font-semibold text-ink block">Règle des 3 Manquements</span>
                   <p className="text-[11px] leading-relaxed">
-                    GhostAI décline formellement toute responsabilité quant aux contenus, affirmations ou vidéos produits par le partenaire.
+                    À 3 manquements non justifiés, le statut est révoqué et les commissions en cours sont annulées.
+                  </p>
+                </div>
+                <div className="p-3 bg-surface rounded-input border border-line/50 space-y-1">
+                  <span className="font-semibold text-ink block">Liberté & Marque</span>
+                  <p className="text-[11px] leading-relaxed">
+                    Liberté de création totale sous réserve de préserver l&apos;image et ne pas induire en erreur.
                   </p>
                 </div>
                 <div className="p-3 bg-surface rounded-input border border-line/50 space-y-1">
                   <span className="font-semibold text-ink block">Anti-Fraude</span>
                   <p className="text-[11px] leading-relaxed">
-                    L&apos;auto-parrainage est strictement interdit sous peine d&apos;exclusion immédiate et d&apos;annulation des commissions.
+                    L&apos;auto-parrainage est strictement interdit sous peine d&apos;exclusion définitive.
                   </p>
                 </div>
               </div>
@@ -367,7 +423,12 @@ export default function PartnerPage() {
             <h1 className="text-2xl font-bold tracking-tight text-ink font-serif">
               Programme Partenaire GhostAI
             </h1>
-            {partner.isActive ? (
+            {partner.isRevoked ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-danger bg-danger/15 border border-danger/30 px-2.5 py-0.5 rounded-full">
+                <AlertTriangle className="w-3 h-3" />
+                Statut Révoqué (3 manquements)
+              </span>
+            ) : partner.isActive ? (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-confirm bg-confirm/10 border border-confirm/20 px-2.5 py-0.5 rounded-full">
                 <ShieldCheck className="w-3 h-3" />
                 Actif (30% à vie)
@@ -386,16 +447,16 @@ export default function PartnerPage() {
 
         <button
           onClick={() => setShowPayoutModal(true)}
-          disabled={metrics.availableBalance < 20 || !partner.isActive}
+          disabled={metrics.availableBalance < 75 || !partner.isActive || partner.isRevoked}
           className={clsx(
             "px-4 py-2.5 rounded-input text-sm font-semibold flex items-center justify-center gap-2 transition-colors",
-            metrics.availableBalance >= 20 && partner.isActive
+            metrics.availableBalance >= 75 && partner.isActive && !partner.isRevoked
               ? "bg-mark text-white hover:bg-mark/90 cursor-pointer shadow-sm"
               : "bg-paper text-ink-quiet border border-line cursor-not-allowed opacity-60"
           )}
         >
           <Wallet className="w-4 h-4" />
-          Demander un retrait
+          Demander un retrait (Dès 75 $)
         </button>
       </div>
 
@@ -455,6 +516,215 @@ export default function PartnerPage() {
         </div>
       </div>
 
+      {/* Alerte Révocation Suite à 3 Manquements */}
+      {partner.isRevoked && (
+        <div className="bg-danger/10 border-2 border-danger/40 p-5 rounded-card flex items-start gap-4 text-ink shadow-sm">
+          <div className="p-2 bg-danger/20 rounded-full text-danger shrink-0">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-bold text-sm text-danger">Statut Partenaire Révoqué</h3>
+            <p className="text-xs text-ink-quiet leading-relaxed">
+              Votre compte partenaire a été révoqué pour non-respect de l&apos;obligation d&apos;activité hebdomadaire (3 manquements consécutifs constatés). Conformément aux conditions d&apos;éligibilité du programme, votre statut affilié est suspendu et vos commissions en cours ont été révoquées.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* BLOC TARGET HEBDOMADAIRE : 3 VIDÉOS / SEMAINE */}
+      {!partner.isRevoked && (
+        <div className="bg-surface border border-line rounded-card p-6 space-y-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Video className="w-5 h-5 text-mark" />
+                <h2 className="font-bold text-base text-ink font-serif">
+                  Objectif Hebdomadaire : 3 Vidéos Promotionnelles
+                </h2>
+              </div>
+              <p className="text-xs text-ink-quiet">
+                Publiez 3 vidéos par semaine (TikTok, YouTube Shorts, Reels...) du lundi au dimanche pour maintenir votre éligibilité.
+              </p>
+            </div>
+
+            {/* Badge Manquements / Strikes */}
+            <div className="shrink-0">
+              {partner.strikesCount === 0 ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-confirm/10 border border-confirm/30 text-confirm">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  0 / 3 Manquement (Compte en règle)
+                </span>
+              ) : partner.strikesCount === 1 ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-warn/15 border border-warn/30 text-warn">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  1 / 3 Manquement (Attention)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-danger/15 border border-danger/30 text-danger animate-pulse">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  2 / 3 Manquements (Dernier avertissement !)
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Jauge de progression de la semaine */}
+          {partnerData?.weeklyTarget && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-ink">
+                  Progression de la semaine en cours ({partnerData.weeklyTarget.weekKey}) :
+                </span>
+                <span className="font-mono font-bold text-mark">
+                  {partnerData.weeklyTarget.videosCount} / {partnerData.weeklyTarget.requiredVideos} vidéos soumises
+                </span>
+              </div>
+              <div className="w-full bg-paper rounded-full h-3 border border-line overflow-hidden">
+                <div
+                  className={clsx(
+                    "h-full transition-all duration-500 rounded-full",
+                    partnerData.weeklyTarget.isCompleted ? "bg-confirm" : "bg-mark"
+                  )}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.round(
+                        (partnerData.weeklyTarget.videosCount /
+                          partnerData.weeklyTarget.requiredVideos) *
+                          100
+                      )
+                    )}%`,
+                  }}
+                />
+              </div>
+              {partnerData.weeklyTarget.isCompleted ? (
+                <p className="text-xs text-confirm font-medium flex items-center gap-1.5 pt-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Objectif validé pour cette semaine ! Vos commissions récurrentes sont sécurisées.
+                </p>
+              ) : (
+                <p className="text-xs text-ink-quiet pt-1">
+                  Il vous reste{" "}
+                  <strong className="text-ink font-semibold">
+                    {Math.max(
+                      0,
+                      partnerData.weeklyTarget.requiredVideos -
+                        partnerData.weeklyTarget.videosCount
+                    )}
+                  </strong>{" "}
+                  vidéo(s) à soumettre avant dimanche 23h59 pour éviter un manquement.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Formulaire de soumission des vidéos */}
+          <form onSubmit={handleVideosSubmit} className="space-y-3 bg-paper p-4 rounded-input border border-line/70">
+            <span className="text-xs font-semibold text-ink block">
+              Soumettre vos liens de vidéos pour cette semaine :
+            </span>
+
+            {videoMessage && (
+              <div
+                className={clsx(
+                  "p-3 rounded-input text-xs font-medium",
+                  videoMessage.type === "success"
+                    ? "bg-confirm/10 text-confirm border border-confirm/30"
+                    : "bg-danger/10 text-danger border border-danger/30"
+                )}
+              >
+                {videoMessage.text}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <input
+                  type="url"
+                  placeholder="Lien Vidéo 1 (TikTok, YouTube...)"
+                  value={videoInputs[0]}
+                  onChange={(e) => {
+                    const copy = [...videoInputs];
+                    copy[0] = e.target.value;
+                    setVideoInputs(copy);
+                  }}
+                  className="w-full bg-surface border border-line rounded-input px-3 py-2 text-xs text-ink placeholder:text-ink-quiet/60 focus:border-mark focus:outline-hidden font-mono"
+                />
+              </div>
+              <div>
+                <input
+                  type="url"
+                  placeholder="Lien Vidéo 2 (Lien public)"
+                  value={videoInputs[1]}
+                  onChange={(e) => {
+                    const copy = [...videoInputs];
+                    copy[1] = e.target.value;
+                    setVideoInputs(copy);
+                  }}
+                  className="w-full bg-surface border border-line rounded-input px-3 py-2 text-xs text-ink placeholder:text-ink-quiet/60 focus:border-mark focus:outline-hidden font-mono"
+                />
+              </div>
+              <div>
+                <input
+                  type="url"
+                  placeholder="Lien Vidéo 3 (Lien public)"
+                  value={videoInputs[2]}
+                  onChange={(e) => {
+                    const copy = [...videoInputs];
+                    copy[2] = e.target.value;
+                    setVideoInputs(copy);
+                  }}
+                  className="w-full bg-surface border border-line rounded-input px-3 py-2 text-xs text-ink placeholder:text-ink-quiet/60 focus:border-mark focus:outline-hidden font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="submit"
+                disabled={videoSubmitting}
+                className="px-4 py-2 bg-ink text-white rounded-input text-xs font-semibold hover:bg-ink/90 transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                {videoSubmitting ? "Enregistrement..." : "Valider mes vidéos de la semaine"}
+              </button>
+            </div>
+          </form>
+
+          {/* Vidéos déjà enregistrées cette semaine */}
+          {partnerData?.weeklyTarget?.videos && partnerData.weeklyTarget.videos.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-line/60">
+              <span className="text-[11px] font-semibold text-ink-quiet uppercase tracking-wider block">
+                Vidéos validées pour cette semaine ({partnerData.weeklyTarget.videos.length}) :
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {partnerData.weeklyTarget.videos.map((vid: any) => (
+                  <div
+                    key={vid.id}
+                    className="p-2.5 bg-paper rounded-input border border-line flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-2 truncate pr-2">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-mark/10 text-mark font-mono shrink-0">
+                        {vid.platform || "Vidéo"}
+                      </span>
+                      <a
+                        href={vid.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-ink hover:text-mark hover:underline truncate font-mono text-[11px]"
+                      >
+                        {vid.url}
+                      </a>
+                    </div>
+                    <CheckCircle2 className="w-4 h-4 text-confirm shrink-0" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 3 Cartes Financières Clés */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Total Gagné */}
@@ -497,10 +767,10 @@ export default function PartnerPage() {
             {metrics.availableBalance.toFixed(2)} $
           </div>
           <p className="text-[11px] text-ink-quiet">
-            {metrics.availableBalance >= 20 ? (
-              <span className="text-confirm font-medium">Prêt pour un retrait (seuil 20 $ atteint)</span>
+            {metrics.availableBalance >= 75 ? (
+              <span className="text-confirm font-medium">Prêt pour un retrait (seuil 75 $ atteint)</span>
             ) : (
-              `Encore ${(20 - metrics.availableBalance).toFixed(2)} $ avant le seuil de retrait (20 $).`
+              `Encore ${(75 - metrics.availableBalance).toFixed(2)} $ avant le seuil de retrait (75 $).`
             )}
           </p>
         </div>
@@ -795,11 +1065,11 @@ export default function PartnerPage() {
             <form onSubmit={handlePayoutSubmit} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-ink-quiet block mb-1">
-                  Montant à retirer (Minimum : 20,00 $)
+                  Montant à retirer (Minimum : 75,00 $)
                 </label>
                 <input
                   type="number"
-                  min="20"
+                  min="75"
                   max={metrics.availableBalance}
                   step="0.01"
                   value={payoutAmount}

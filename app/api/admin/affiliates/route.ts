@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { checkAdminAccess, recordAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
+import { getWeekKey } from "@/lib/partner";
 
 export async function GET() {
   const session = await auth();
@@ -12,11 +13,16 @@ export async function GET() {
   }
 
   try {
+    const currentWeek = getWeekKey();
     const affiliates = await prisma.affiliate.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         _count: {
-          select: { clicks: true, referrals: true, commissions: true, payouts: true },
+          select: { clicks: true, referrals: true, commissions: true, payouts: true, videos: true },
+        },
+        videos: {
+          where: { weekKey: currentWeek.weekKey },
+          select: { id: true, url: true, platform: true, submittedAt: true },
         },
       },
     });

@@ -195,7 +195,11 @@ model Affiliate {
   totalConversions Int       @default(0)
   totalEarned      Float     @default(0.0)
   pendingPayout    Float     @default(0.0)
-  status           String    @default("active") // active | paused
+  status           String    @default("active") // active | paused | revoked
+  strikesCount     Int       @default(0)       // manquements hebdomadaires (0 à 3)
+  lastEvaluatedWeek String?                   // Ex: "2026-W38"
+  isRevoked        Boolean   @default(false)   // statut de révocation après 3 manquements
+  revokedAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -203,6 +207,7 @@ model Affiliate {
   clicks           AffiliateClick[]
   commissions      AffiliateCommission[]
   payouts          AffiliatePayout[]
+  videos           AffiliateVideo[]
 
   @@index([userId])
   @@index([code])
@@ -255,6 +260,22 @@ model AffiliatePayout {
   updatedAt      DateTime  @updatedAt
 
   @@index([affiliateId])
+}
+
+model AffiliateVideo {
+  id          String    @id @default(cuid())
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  url         String    @db.Text
+  weekKey     String    // Ex: "2026-W38"
+  year        Int
+  weekNumber  Int
+  platform    String?   // "tiktok" | "youtube" | "instagram" | "other"
+  status      String    @default("submitted") // "submitted" | "approved" | "rejected"
+  submittedAt DateTime  @default(now())
+
+  @@index([affiliateId, weekKey])
+  @@index([submittedAt])
 }
 
 // ==========================================

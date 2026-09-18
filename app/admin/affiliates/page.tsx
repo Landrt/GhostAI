@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   BadgePercent,
   CheckCircle,
@@ -10,6 +11,9 @@ import {
   CreditCard,
   Ban,
   ShieldCheck,
+  Trash2,
+  Eye,
+  Video,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -88,6 +92,34 @@ export default function AdminAffiliatesPage() {
       }
     } catch (err) {
       console.error("Erreur modération payout:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeletePartner = async (affiliate: any) => {
+    if (
+      !confirm(
+        `ATTENTION : Voulez-vous supprimer définitivement l'affilié ${affiliate.name} (?ref=${affiliate.code}) ? Toutes ses commissions, clics et vidéos associés seront supprimés.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const res = await fetch(`/api/admin/affiliates/${affiliate.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        await fetchData();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erreur lors de la suppression.");
+      }
+    } catch (err) {
+      console.error("Erreur delete affiliate:", err);
     } finally {
       setActionLoading(false);
     }
@@ -202,57 +234,117 @@ export default function AdminAffiliatesPage() {
                   <th className="px-5 py-3">Ventes</th>
                   <th className="px-5 py-3">Total Gagné</th>
                   <th className="px-5 py-3">Solde Dispo</th>
+                  <th className="px-5 py-3">Vidéos Semaine</th>
+                  <th className="px-5 py-3">Manquements</th>
                   <th className="px-5 py-3">Statut</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
-                {affiliates.map((a) => (
-                  <tr key={a.id} className="hover:bg-paper/40 transition-colors">
-                    <td className="px-5 py-3.5 font-mono font-bold text-mark">
-                      ?ref={a.code}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="font-semibold text-ink">{a.name}</div>
-                      <div className="text-[11px] text-ink-quiet font-mono">{a.email}</div>
-                    </td>
-                    <td className="px-5 py-3.5 font-mono">{a.totalClicks}</td>
-                    <td className="px-5 py-3.5 font-mono">{a.totalSignups}</td>
-                    <td className="px-5 py-3.5 font-mono font-bold text-confirm">
-                      {a.totalConversions}
-                    </td>
-                    <td className="px-5 py-3.5 font-mono font-semibold">
-                      {a.totalEarned.toFixed(2)} $
-                    </td>
-                    <td className="px-5 py-3.5 font-mono font-bold text-mark">
-                      {a.availableBalance.toFixed(2)} $
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span
-                        className={clsx(
-                          "px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider",
-                          a.isActive ? "bg-confirm/15 text-confirm" : "bg-danger/15 text-danger"
+                {affiliates.map((a) => {
+                  const weekVideosCount = a.videos?.length || 0;
+                  const isRevoked = a.isRevoked;
+                  const strikes = a.strikesCount || 0;
+
+                  return (
+                    <tr key={a.id} className="hover:bg-paper/40 transition-colors">
+                      <td className="px-5 py-3.5 font-mono font-bold text-mark">
+                        ?ref={a.code}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="font-semibold text-ink">{a.name}</div>
+                        <div className="text-[11px] text-ink-quiet font-mono">{a.email}</div>
+                      </td>
+                      <td className="px-5 py-3.5 font-mono">{a.totalClicks}</td>
+                      <td className="px-5 py-3.5 font-mono">{a.totalSignups}</td>
+                      <td className="px-5 py-3.5 font-mono font-bold text-confirm">
+                        {a.totalConversions}
+                      </td>
+                      <td className="px-5 py-3.5 font-mono font-semibold">
+                        {a.totalEarned.toFixed(2)} $
+                      </td>
+                      <td className="px-5 py-3.5 font-mono font-bold text-mark">
+                        {a.availableBalance.toFixed(2)} $
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span
+                          className={clsx(
+                            "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold font-mono",
+                            weekVideosCount >= 3
+                              ? "bg-confirm/15 text-confirm"
+                              : weekVideosCount > 0
+                              ? "bg-warn/15 text-warn"
+                              : "bg-danger/15 text-danger"
+                          )}
+                        >
+                          <Video className="w-3 h-3" />
+                          {weekVideosCount}/3
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {isRevoked ? (
+                          <span className="px-2 py-0.5 rounded bg-danger/15 text-danger font-semibold text-[10px] uppercase">
+                            3/3 (Révoqué)
+                          </span>
+                        ) : strikes > 0 ? (
+                          <span className="px-2 py-0.5 rounded bg-warn/15 text-warn font-semibold text-[11px] font-mono">
+                            {strikes}/3
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-confirm/15 text-confirm font-semibold text-[11px] font-mono">
+                            0/3
+                          </span>
                         )}
-                      >
-                        {a.isActive ? "Actif" : "Suspendu"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <button
-                        onClick={() => handleTogglePartner(a)}
-                        disabled={actionLoading}
-                        className={clsx(
-                          "px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer",
-                          a.isActive
-                            ? "bg-danger/10 text-danger hover:bg-danger/20"
-                            : "bg-confirm/10 text-confirm hover:bg-confirm/20"
-                        )}
-                      >
-                        {a.isActive ? "Suspendre" : "Réactiver"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span
+                          className={clsx(
+                            "px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider",
+                            isRevoked
+                              ? "bg-danger text-white"
+                              : a.isActive
+                              ? "bg-confirm/15 text-confirm"
+                              : "bg-paper-contrast text-ink-quiet"
+                          )}
+                        >
+                          {isRevoked ? "Révoqué" : a.isActive ? "Actif" : "Suspendu"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/admin/affiliates/${a.id}`}
+                            className="p-1.5 text-ink-quiet hover:text-mark hover:bg-mark/10 rounded transition-colors"
+                            title="Voir la fiche détaillée et toutes les vidéos"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                          <button
+                            onClick={() => handleTogglePartner(a)}
+                            disabled={actionLoading || isRevoked}
+                            className={clsx(
+                              "px-2 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer",
+                              a.isActive
+                                ? "bg-warn/10 text-warn hover:bg-warn/20"
+                                : "bg-confirm/10 text-confirm hover:bg-confirm/20"
+                            )}
+                            title={a.isActive ? "Suspendre l'affilié" : "Réactiver l'affilié"}
+                          >
+                            {a.isActive ? "Pause" : "Activer"}
+                          </button>
+                          <button
+                            onClick={() => handleDeletePartner(a)}
+                            disabled={actionLoading}
+                            className="p-1.5 text-ink-quiet hover:text-danger hover:bg-danger/10 rounded transition-colors cursor-pointer"
+                            title="Supprimer définitivement l'affilié"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

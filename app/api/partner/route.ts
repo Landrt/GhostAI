@@ -5,6 +5,7 @@ import {
   getOrCreatePartner,
   customizeSlug,
   updatePayoutDetails,
+  submitAffiliateVideos,
 } from "@/lib/partner";
 
 export async function GET() {
@@ -73,6 +74,15 @@ export async function PATCH(req: Request) {
       }
       const updated = await updatePayoutDetails(partner.id, payoutMethod, payoutDetails);
       return NextResponse.json({ success: true, partner: updated });
+    }
+
+    if (body.action === "submit_weekly_videos") {
+      const { urls } = body;
+      if (!Array.isArray(urls) || urls.length === 0) {
+        return NextResponse.json({ error: "Veuillez fournir au moins une URL de vidéo." }, { status: 400 });
+      }
+      const result = await submitAffiliateVideos(partner.id, urls);
+      return NextResponse.json({ success: true, result });
     }
 
     return NextResponse.json({ error: "Action non reconnue" }, { status: 400 });

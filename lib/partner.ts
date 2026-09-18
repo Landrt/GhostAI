@@ -27,6 +27,58 @@ const RESERVED_SLUGS = new Set([
   "onboarding",
 ]);
 
+export const MIN_PAYOUT_AMOUNT = 75; // Seuil minimum de retrait fixé à 75 USD
+export const REQUIRED_WEEKLY_VIDEOS = 3; // 3 vidéos obligatoires par semaine
+export const MAX_STRIKES = 3; // 3 manquements consécutifs entraînent la révocation
+
+/**
+ * Calcule la semaine ISO (du lundi 00:00 au dimanche 23:59:59)
+ */
+export function getWeekKey(date: Date = new Date()): {
+  weekKey: string;
+  year: number;
+  weekNumber: number;
+  startOfWeek: Date;
+  endOfWeek: Date;
+} {
+  const target = new Date(date);
+  const day = target.getDay(); // 0 = dimanche, 1 = lundi
+  // Lundi courant à 00:00:00
+  const diffToMonday = (day === 0 ? -6 : 1) - day;
+  const monday = new Date(target);
+  monday.setDate(target.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  // Dimanche courant à 23:59:59.999
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  // Semaine ISO
+  const d = new Date(Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  const year = d.getUTCFullYear();
+  const weekKey = `${year}-W${String(weekNo).padStart(2, "0")}`;
+
+  return { weekKey, year, weekNumber: weekNo, startOfWeek: monday, endOfWeek: sunday };
+}
+
+/**
+ * Détecte la plateforme de la vidéo selon l'URL
+ */
+export function detectVideoPlatform(url: string): string {
+  const lower = url.toLowerCase().trim();
+  if (lower.includes("tiktok.com")) return "tiktok";
+  if (lower.includes("youtube.com") || lower.includes("youtu.be")) return "youtube";
+  if (lower.includes("instagram.com")) return "instagram";
+  if (lower.includes("linkedin.com")) return "linkedin";
+  if (lower.includes("twitter.com") || lower.includes("x.com")) return "twitter";
+  return "other";
+}
+
 /**
  * Nettoie une chaîne pour en faire un slug sûr.
  */
@@ -212,7 +264,7 @@ export async function customizeSlug(partnerId: string, rawSlug: string) {
 }
 
 /**
- * Soumission d'une demande de retrait (Seuil minimum : 20$).
+ * Soumission d'une demande de retrait (Seuil minimum : 75 USD).
  */
 export async function requestPayout(
   partnerId: string,
@@ -220,18 +272,22 @@ export async function requestPayout(
   payoutMethod: "mobile_money" | "bank",
   accountDetails: any
 ) {
-  if (amount < 20) {
-    throw new Error("Le seuil minimum de retrait est de 20,00 $.");
+  if (amount < MIN_PAYOUT_AMOUNT) {
+    throw new Error(`Le seuil minimum de retrait est de ${MIN_PAYOUT_AMOUNT},00 $.`);
   }
 
   return await prisma.$transaction(async (tx) => {
     const affiliate = await tx.affiliate.findUnique({
       where: { id: partnerId },
-      select: { id: true, availableBalance: true, pendingPayout: true, isActive: true },
+      select: { id: true, availableBalance: true, pendingPayout: true, isActive: true, isRevoked: true },
     });
 
     if (!affiliate) {
       throw new Error("Partenaire introuvable");
+    }
+
+    if (affiliate.isRevoked) {
+      throw new Error("Votre compte partenaire a été révoqué suite au non-respect de l'objectif hebdomadaire (3 manquements). Retraits impossibles.");
     }
 
     if (!affiliate.isActive) {
@@ -420,15 +476,167 @@ export async function updatePayoutDetails(
 }
 
 /**
- * Récupère l'intégralité des données du dashboard partenaire.
+ * Évalue la conformité hebdomadaire d'un partenaire.
+ * Vérifie si la semaine précédente a atteint l'objectif des 3 vidéos.
+ * Si non respecté : +1 manquement (strike).
+ * Si 3 manquements : révocation automatique du compte et annulation des commissions en attente.
+ */
+export async function evaluatePartnerCompliance(affiliateId: string) {
+  const affiliate = await prisma.affiliate.findUnique({
+    where: { id: affiliateId },
+    select: {
+      id: true,
+      strikesCount: true,
+      lastEvaluatedWeek: true,
+      isRevoked: true,
+      createdAt: true,
+    },
+  });
+
+  if (!affiliate || affiliate.isRevoked) return affiliate;
+
+  const current = getWeekKey();
+
+  // Premier démarrage : initialise avec la semaine courante
+  if (!affiliate.lastEvaluatedWeek) {
+    await prisma.affiliate.update({
+      where: { id: affiliateId },
+      data: { lastEvaluatedWeek: current.weekKey },
+    });
+    return affiliate;
+  }
+
+  // Si la semaine a changé depuis la dernière évaluation
+  if (affiliate.lastEvaluatedWeek !== current.weekKey) {
+    const count = await prisma.affiliateVideo.count({
+      where: {
+        affiliateId,
+        weekKey: affiliate.lastEvaluatedWeek,
+      },
+    });
+
+    let newStrikes = affiliate.strikesCount;
+    let shouldRevoke = false;
+
+    if (count < REQUIRED_WEEKLY_VIDEOS) {
+      newStrikes += 1;
+      if (newStrikes >= MAX_STRIKES) {
+        shouldRevoke = true;
+      }
+    }
+
+    if (shouldRevoke) {
+      await prisma.$transaction([
+        prisma.affiliate.update({
+          where: { id: affiliateId },
+          data: {
+            strikesCount: newStrikes,
+            lastEvaluatedWeek: current.weekKey,
+            isRevoked: true,
+            isActive: false,
+            status: "revoked",
+            revokedAt: new Date(),
+          },
+        }),
+        prisma.affiliateCommission.updateMany({
+          where: {
+            affiliateId,
+            status: "pending",
+          },
+          data: {
+            status: "canceled",
+          },
+        }),
+      ]);
+    } else {
+      await prisma.affiliate.update({
+        where: { id: affiliateId },
+        data: {
+          strikesCount: newStrikes,
+          lastEvaluatedWeek: current.weekKey,
+        },
+      });
+    }
+  }
+
+  return affiliate;
+}
+
+/**
+ * Soumet une ou plusieurs vidéos pour la semaine en cours.
+ */
+export async function submitAffiliateVideos(affiliateId: string, urls: string[]) {
+  const affiliate = await prisma.affiliate.findUnique({
+    where: { id: affiliateId },
+    select: { id: true, isRevoked: true, isActive: true },
+  });
+
+  if (!affiliate) throw new Error("Partenaire introuvable");
+  if (affiliate.isRevoked) {
+    throw new Error("Votre compte partenaire a été révoqué suite à 3 manquements consécutifs.");
+  }
+
+  const current = getWeekKey();
+
+  const validUrls = urls
+    .map((u) => u.trim())
+    .filter((u) => {
+      try {
+        const parsed = new URL(u);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+      } catch {
+        return false;
+      }
+    });
+
+  if (validUrls.length === 0) {
+    throw new Error("Veuillez fournir au moins une URL valide (ex: TikTok, YouTube, Instagram Reels).");
+  }
+
+  const existingCount = await prisma.affiliateVideo.count({
+    where: {
+      affiliateId,
+      weekKey: current.weekKey,
+    },
+  });
+
+  const createdVideos = [];
+  for (const url of validUrls) {
+    const video = await prisma.affiliateVideo.create({
+      data: {
+        affiliateId,
+        url,
+        weekKey: current.weekKey,
+        year: current.year,
+        weekNumber: current.weekNumber,
+        platform: detectVideoPlatform(url),
+        status: "submitted",
+      },
+    });
+    createdVideos.push(video);
+  }
+
+  return {
+    success: true,
+    added: createdVideos.length,
+    totalThisWeek: existingCount + createdVideos.length,
+    required: REQUIRED_WEEKLY_VIDEOS,
+    weekKey: current.weekKey,
+  };
+}
+
+/**
+ * Récupère l'ensemble des données nécessaires pour le Dashboard Partenaire
  */
 export async function getPartnerDashboardData(userId: string) {
   const partner = await getOrCreatePartner(userId);
 
-  // Exécution de l'évaluation paresseuse à chaque consultation
+  // Mettre à jour l'état des commissions prêtes à être libérées
   await processMaturedCommissions(partner.id);
 
-  // Re-lecture des données fraîches
+  // Évaluer la conformité hebdomadaire (objectif 3 vidéos)
+  await evaluatePartnerCompliance(partner.id);
+
   const freshPartner = await prisma.affiliate.findUnique({
     where: { id: partner.id },
     include: {
@@ -438,7 +646,11 @@ export async function getPartnerDashboardData(userId: string) {
       },
       payouts: {
         orderBy: { createdAt: "desc" },
-        take: 50,
+        take: 20,
+      },
+      videos: {
+        orderBy: { submittedAt: "desc" },
+        take: 30,
       },
     },
   });
@@ -484,6 +696,12 @@ export async function getPartnerDashboardData(userId: string) {
       ? Math.round((freshPartner.totalConversions / freshPartner.totalSignups) * 1000) / 10
       : 0;
 
+  // Données de l'objectif hebdomadaire (3 vidéos / semaine)
+  const currentWeek = getWeekKey();
+  const currentWeekVideos = freshPartner.videos.filter(
+    (v) => v.weekKey === currentWeek.weekKey
+  );
+
   return {
     partner: {
       id: freshPartner.id,
@@ -498,6 +716,9 @@ export async function getPartnerDashboardData(userId: string) {
       codeModified: freshPartner.codeModified,
       isActive: freshPartner.isActive,
       status: freshPartner.status,
+      strikesCount: freshPartner.strikesCount,
+      isRevoked: freshPartner.isRevoked,
+      revokedAt: freshPartner.revokedAt,
       totalClicks: freshPartner.totalClicks,
       totalSignups: freshPartner.totalSignups,
       totalConversions: freshPartner.totalConversions,
@@ -516,8 +737,24 @@ export async function getPartnerDashboardData(userId: string) {
       totalSignups: freshPartner.totalSignups,
       totalConversions: freshPartner.totalConversions,
       conversionRate,
+      minPayoutAmount: MIN_PAYOUT_AMOUNT,
+    },
+    weeklyTarget: {
+      weekKey: currentWeek.weekKey,
+      weekNumber: currentWeek.weekNumber,
+      year: currentWeek.year,
+      startOfWeek: currentWeek.startOfWeek,
+      endOfWeek: currentWeek.endOfWeek,
+      videos: currentWeekVideos,
+      videosCount: currentWeekVideos.length,
+      requiredVideos: REQUIRED_WEEKLY_VIDEOS,
+      isCompleted: currentWeekVideos.length >= REQUIRED_WEEKLY_VIDEOS,
+      strikesCount: freshPartner.strikesCount,
+      maxStrikes: MAX_STRIKES,
+      isRevoked: freshPartner.isRevoked,
     },
     commissions: freshPartner.commissions,
     payouts: freshPartner.payouts,
+    videos: freshPartner.videos,
   };
 }

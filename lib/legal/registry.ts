@@ -79,7 +79,7 @@ export const LEGAL_DOCUMENTS: LegalDocumentMeta[] = [
     title: "Conditions Spécifiques aux Retraits d’Affiliation",
     shortTitle: "Retraits & Payouts",
     category: "Partenariat & Affiliation",
-    description: "Seuil minimum de 20 $, période de gel de sécurité de 30 jours, canaux Mobile Money/Banque et protection anti-déficit.",
+    description: "Seuil minimum de 75 $, période de gel de sécurité de 30 jours, canaux Mobile Money/Banque et protection anti-déficit.",
     iconName: "Wallet",
     estimatedReadingTime: "5 min",
     order: 6,
