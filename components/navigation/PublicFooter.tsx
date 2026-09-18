@@ -41,7 +41,7 @@ export function PublicFooter() {
               <li>
                 <Link href="/app/repurpose" className="inline-flex items-center gap-1 text-ink-quiet hover:text-ink transition-colors">
                   <Sparkles className="w-3 h-3 text-mark" />
-                  <span>Atomiseur (Opus Clip)</span>
+                  <span>Atomiseur de Contenu</span>
                 </Link>
               </li>
               <li>

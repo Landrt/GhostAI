@@ -114,7 +114,7 @@ PROFIL DE VOIX DU CRÉATEUR :
     }
   }
 
-  return `Tu es l'Atomiseur de Contenu ("Le Opus Clip pour LinkedIn") de GhostAI.
+  return `Tu es l'Atomiseur de Contenu (le moteur de repurposing LinkedIn multiformat) de GhostAI.
 Ta mission : ingérer un contenu source brut (transcription vidéo YouTube, article de fond, podcast, notes de recherche) et le découper chirurgicalement en un pack complet d'actifs LinkedIn viraux et mémorables.
 
 RÈGLES D'OR DE GHOSTWRITING :

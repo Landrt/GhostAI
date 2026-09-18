@@ -325,7 +325,7 @@ export default function RepurposePage() {
             </h1>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-mark/10 text-mark border border-mark/20">
               <Sparkles className="w-3 h-3" />
-              Opus Clip pour LinkedIn
+              Repurposing LinkedIn IA
             </span>
           </div>
           <p className="text-xs sm:text-sm text-ink-quiet mt-1 max-w-2xl">

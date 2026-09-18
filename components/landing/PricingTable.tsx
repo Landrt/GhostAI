@@ -13,7 +13,7 @@ export function PricingTable({ isFullPage = false }: { isFullPage?: boolean }) {
       subtitle: "Génération complète avec vérification qualité incluse — pas une version brute limitée.",
       features: [
         "5 posts par mois",
-        "1 Pack Atomiseur d'essai / mois (Opus Clip)",
+        "1 Pack Atomiseur d'essai / mois",
         "Triple vérification qualité",
         "Aperçu feed LinkedIn fidèle",
         "Profil de voix initial",

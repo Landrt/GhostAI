@@ -180,7 +180,7 @@ export default function BillingPage() {
           {/* Jauge Atomiseur */}
           <div className="space-y-2.5 p-4 bg-paper rounded-input border border-line">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-ink font-semibold">Packs Atomiseur (Opus Clip) :</span>
+              <span className="text-ink font-semibold">Packs Atomiseur :</span>
               <span className="font-mono font-bold text-ink">
                 {repurposesUsed} / {repurposeLimit} packs
               </span>

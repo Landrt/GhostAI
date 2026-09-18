@@ -23,7 +23,7 @@ import { signOut } from "next-auth/react";
 const NAV_ITEMS = [
   { href: "/app", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/app/create", label: "Créer un post", icon: PenSquare, highlight: true },
-  { href: "/app/repurpose", label: "Atomiseur (Opus Clip)", icon: Sparkles },
+  { href: "/app/repurpose", label: "Atomiseur de Contenu", icon: Sparkles },
   { href: "/app/posts", label: "Mes posts", icon: FileText },
   { href: "/app/voice", label: "Ta voix", icon: Mic2 },
   { href: "/app/personality", label: "Communication", icon: SlidersHorizontal },
