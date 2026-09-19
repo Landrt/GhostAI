@@ -2,9 +2,7 @@ import React from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Sidebar } from "@/components/navigation/Sidebar";
-import { MobileNav } from "@/components/navigation/MobileNav";
-import { Header } from "@/components/navigation/Header";
+import { TopNav } from "@/components/navigation/TopNav";
 import { AppFooter } from "@/components/navigation/AppFooter";
 
 export default async function AppLayout({
@@ -35,27 +33,25 @@ export default async function AppLayout({
   const planLimit = plan === "free" ? 5 : plan === "pro" ? 30 : 999999;
 
   return (
-    <div className="min-h-screen flex bg-paper text-ink">
-      {/* Sidebar Desktop */}
-      <Sidebar />
+    <div className="min-h-screen flex flex-col bg-paper text-ink">
+      {/* Top Navigation Bar classique en haut */}
+      <TopNav
+        user={{
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        }}
+        postsUsedThisMonth={postsUsed}
+        planLimit={planLimit}
+      />
 
-      {/* Colonne principale */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <MobileNav />
-        <Header
-          user={{
-            name: user.name,
-            email: user.email,
-            image: user.image,
-          }}
-          postsUsedThisMonth={postsUsed}
-          planLimit={planLimit}
-        />
-        <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
-          {children}
-        </main>
-        <AppFooter />
-      </div>
+      {/* Zone de contenu principale plein écran */}
+      <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
+        {children}
+      </main>
+
+      {/* Pied de page applicatif */}
+      <AppFooter />
     </div>
   );
 }
