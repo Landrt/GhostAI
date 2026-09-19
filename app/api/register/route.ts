@@ -52,33 +52,36 @@ export async function POST(req: Request) {
     }
 
     // Création de l'utilisateur avec son abonnement Free par défaut et attribution parrain
-    const user = await prisma.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
-        data: {
-          email: normalizedEmail,
-          passwordHash,
-          referredByPartnerId: partnerIdToAssign,
-          referredAt: partnerIdToAssign ? new Date() : null,
-          subscription: {
-            create: {
-              plan: "free",
-              status: "active",
-              postsUsedThisMonth: 0,
-              currentPeriodStart: new Date(),
+    const user = await prisma.$transaction(
+      async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            passwordHash,
+            referredByPartnerId: partnerIdToAssign,
+            referredAt: partnerIdToAssign ? new Date() : null,
+            subscription: {
+              create: {
+                plan: "free",
+                status: "active",
+                postsUsedThisMonth: 0,
+                currentPeriodStart: new Date(),
+              },
             },
           },
-        },
-      });
-
-      if (partnerIdToAssign) {
-        await tx.affiliate.update({
-          where: { id: partnerIdToAssign },
-          data: { totalSignups: { increment: 1 } },
         });
-      }
 
-      return newUser;
-    });
+        if (partnerIdToAssign) {
+          await tx.affiliate.update({
+            where: { id: partnerIdToAssign },
+            data: { totalSignups: { increment: 1 } },
+          });
+        }
+
+        return newUser;
+      },
+      { timeout: 25000, maxWait: 15000 }
+    );
 
     return NextResponse.json(
       { success: true, userId: user.id },
