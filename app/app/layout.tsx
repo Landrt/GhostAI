@@ -43,6 +43,7 @@ export default async function AppLayout({
         }}
         postsUsedThisMonth={postsUsed}
         planLimit={planLimit}
+        plan={plan}
       />
 
       {/* Zone de contenu principale plein écran */}

@@ -41,27 +41,27 @@ export function AdminTopNav({ email }: AdminTopNavProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur border-b border-line select-none">
+    <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur-md border-b border-line/70 select-none shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
-          {/* Marque Admin & Badge */}
+          {/* Marque Admin & Badge Lockup */}
           <div className="flex items-center gap-6 shrink-0">
-            <Link href="/admin" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded bg-mark text-white flex items-center justify-center font-bold text-xs shadow-sm">
+            <Link href="/admin" className="flex items-center gap-2.5 group transition-opacity hover:opacity-90">
+              <div className="w-8 h-8 rounded-lg bg-mark text-white flex items-center justify-center font-bold text-xs shadow-xs">
                 <Shield className="w-4 h-4" />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-base tracking-tight text-ink group-hover:text-mark transition-colors">
+                <span className="font-bold text-base tracking-tight text-ink font-sans">
                   GhostAI
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-mark -mt-0.5">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-mark -mt-1">
                   Superviseur
                 </span>
               </div>
             </Link>
 
-            {/* Navigation Desktop Principale (8 modules) */}
-            <nav className="hidden xl:flex items-center gap-1">
+            {/* Navigation Desktop Principale (Track Segmenté Mobbin) */}
+            <nav className="hidden xl:flex items-center gap-0.5 p-1 bg-paper/60 rounded-xl border border-line/40">
               {ADMIN_NAV_ITEMS.map((item) => {
                 const isActive =
                   item.href === "/admin"
@@ -74,15 +74,15 @@ export function AdminTopNav({ email }: AdminTopNavProps) {
                     key={item.href}
                     href={item.href}
                     className={clsx(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-input text-xs font-semibold transition-colors whitespace-nowrap",
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
                       isActive
-                        ? "bg-mark-light text-mark font-bold"
-                        : "text-ink hover:text-mark hover:bg-paper"
+                        ? "bg-surface text-ink font-bold shadow-xs border border-line/60"
+                        : "text-ink-quiet hover:text-ink hover:bg-surface/50"
                     )}
                   >
                     <Icon
                       className={clsx(
-                        "w-3.5 h-3.5 shrink-0",
+                        "w-3.5 h-3.5 shrink-0 transition-colors",
                         isActive ? "text-mark" : "text-ink-quiet"
                       )}
                     />
@@ -95,7 +95,7 @@ export function AdminTopNav({ email }: AdminTopNavProps) {
 
           {/* Navigation intermédiaire (lg) */}
           <nav className="hidden lg:flex xl:hidden items-center gap-1">
-            {ADMIN_NAV_ITEMS.slice(0, 6).map((item) => {
+            {ADMIN_NAV_ITEMS.slice(0, 5).map((item) => {
               const isActive =
                 item.href === "/admin"
                   ? pathname === "/admin"
@@ -107,10 +107,10 @@ export function AdminTopNav({ email }: AdminTopNavProps) {
                   key={item.href}
                   href={item.href}
                   className={clsx(
-                    "flex items-center gap-1.5 px-2 py-1.5 rounded-input text-xs font-semibold transition-colors whitespace-nowrap",
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
                     isActive
                       ? "bg-mark-light text-mark font-bold"
-                      : "text-ink hover:text-mark hover:bg-paper"
+                      : "text-ink-quiet hover:text-ink hover:bg-paper"
                   )}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -120,25 +120,25 @@ export function AdminTopNav({ email }: AdminTopNavProps) {
             })}
           </nav>
 
-          {/* Section Droite : Statut, Email & Retour SaaS */}
+          {/* Section Droite : Statut Console & Raccourci SaaS */}
           <div className="flex items-center gap-3 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-mark bg-mark-light px-2 py-0.5 rounded-full">
-              <ShieldCheck className="w-3 h-3" />
-              Accès Console
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-semibold text-mark bg-mark-light px-2.5 py-1 rounded-full border border-mark/25">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Console Sécurisée</span>
             </span>
 
             {/* Admin Identity */}
             {email && (
-              <div className="hidden md:flex items-center gap-2 text-xs text-ink bg-paper px-2.5 py-1 rounded border border-line">
+              <div className="hidden md:flex items-center gap-2 text-xs text-ink bg-paper px-2.5 py-1 rounded-full border border-line/80">
                 <UserIcon className="w-3.5 h-3.5 text-ink-quiet" />
-                <span className="font-mono text-[11px] max-w-[140px] truncate">{email}</span>
+                <span className="font-mono text-[11px] max-w-[130px] truncate">{email}</span>
               </div>
             )}
 
             {/* Raccourci vers le SaaS membre */}
             <Link
               href="/app"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-paper hover:bg-mark-light text-ink hover:text-mark border border-line rounded-input text-xs font-semibold transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-paper hover:bg-line/40 text-ink border border-line/80 rounded-full text-xs font-semibold transition-all active:scale-95 shadow-xs"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Retour SaaS</span>
@@ -147,7 +147,7 @@ export function AdminTopNav({ email }: AdminTopNavProps) {
             {/* Hamburger Toggle pour Mobile / Tablette */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="p-2 text-ink hover:text-mark rounded-input transition-colors lg:hidden cursor-pointer"
+              className="p-2 text-ink hover:text-mark rounded-lg transition-colors lg:hidden cursor-pointer"
               aria-label="Menu Admin"
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -158,13 +158,13 @@ export function AdminTopNav({ email }: AdminTopNavProps) {
 
       {/* Menu Déroulant Mobile Admin */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-line bg-surface px-4 py-4 space-y-3 shadow-lg">
-          <div className="flex items-center justify-between pb-2 border-b border-line text-xs">
-            <span className="text-ink-quiet">Connecté en tant que :</span>
+        <div className="lg:hidden border-t border-line bg-surface/98 backdrop-blur-md px-4 py-4 space-y-3 shadow-lg animate-in slide-in-from-top duration-200">
+          <div className="flex items-center justify-between p-2.5 bg-paper rounded-card border border-line text-xs">
+            <span className="text-ink-quiet">Superviseur :</span>
             <span className="font-mono font-bold text-ink">{email || "Administrateur"}</span>
           </div>
 
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             {ADMIN_NAV_ITEMS.map((item) => {
               const isActive =
                 item.href === "/admin"
@@ -178,7 +178,7 @@ export function AdminTopNav({ email }: AdminTopNavProps) {
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={clsx(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-input text-sm font-semibold transition-colors",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-input text-xs font-semibold transition-colors",
                     isActive
                       ? "bg-mark-light text-mark font-bold"
                       : "text-ink hover:bg-paper"
@@ -195,10 +195,10 @@ export function AdminTopNav({ email }: AdminTopNavProps) {
             <Link
               href="/app"
               onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-mark hover:underline"
+              className="flex items-center justify-center gap-2 py-2.5 bg-paper hover:bg-line/40 rounded-input text-xs font-semibold text-ink border border-line"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Ouvrir l&apos;application GhostAI (Espace Membre)</span>
+              <span>Ouvrir l&apos;Espace Membre (/app)</span>
             </Link>
           </div>
         </div>
