@@ -6,10 +6,8 @@ export async function register() {
         dns.setDefaultResultOrder("ipv4first");
       }
     } catch {}
+
     // Optimisation mémoire : déclenchement d'un ramasse-miettes léger périodique
-    // si Node.js est démarré avec l'option --expose-gc.
-    // Cela permet de libérer immédiatement les requêtes et tampons réseau,
-    // garantissant une mémoire RSS stable lors des tests de charge (DevTcheck).
     if (typeof (globalThis as any).gc === "function") {
       const gcTimer = setInterval(() => {
         try {
@@ -21,5 +19,19 @@ export async function register() {
         gcTimer.unref();
       }
     }
+
+    // Pre-warming de la connexion Prisma à Neon pour éliminer le délai de démarrage à froid
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      prisma
+        .$connect()
+        .then(() => prisma.adminSecurityConfig.findFirst())
+        .then(() => {
+          console.log("✓ Connexion BDD Neon pré-établie et prête !");
+        })
+        .catch((err: any) => {
+          console.warn("Pré-chauffage Prisma :", err.message);
+        });
+    } catch {}
   }
 }

@@ -62,59 +62,62 @@ export async function POST(req: Request) {
       Math.round(40 + (finalExamples.length / 5) * 60)
     );
 
-    await prisma.$transaction(async (tx) => {
-      await tx.personalityProfile.upsert({
-        where: { userId },
-        create: {
-          userId,
-          directness,
-          storytelling,
-          formality,
-          humor: 0.4,
-          technicality: 0.6,
-          emotionalExpression: 0.5,
-          opinionStrength,
-          vulnerability: hardLesson ? 0.7 : 0.4,
-        },
-        update: {
-          directness,
-          storytelling,
-          formality,
-          opinionStrength,
-          vulnerability: hardLesson ? 0.7 : 0.4,
-        },
-      });
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.personalityProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            directness,
+            storytelling,
+            formality,
+            humor: 0.4,
+            technicality: 0.6,
+            emotionalExpression: 0.5,
+            opinionStrength,
+            vulnerability: hardLesson ? 0.7 : 0.4,
+          },
+          update: {
+            directness,
+            storytelling,
+            formality,
+            opinionStrength,
+            vulnerability: hardLesson ? 0.7 : 0.4,
+          },
+        });
 
-      await tx.voiceProfile.upsert({
-        where: { userId },
-        create: {
-          userId,
-          styleExamples: finalExamples,
-          directness,
-          storytelling,
-          formality,
-          humor: 0.35,
-          technicality: 0.65,
-          emotionality: 0.45,
-          preferredPhrases: ["Phrases courtes", "Exemples vécus"],
-          avoidedPhrases: ["Jargon corporate", "Tournures passives"],
-          consistencyScore: finalExamples.length > 0 ? 75 : null,
-          completeness,
-        },
-        update: {
-          styleExamples: finalExamples,
-          directness,
-          storytelling,
-          formality,
-          completeness,
-        },
-      });
+        await tx.voiceProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            styleExamples: finalExamples,
+            directness,
+            storytelling,
+            formality,
+            humor: 0.35,
+            technicality: 0.65,
+            emotionality: 0.45,
+            preferredPhrases: ["Phrases courtes", "Exemples vécus"],
+            avoidedPhrases: ["Jargon corporate", "Tournures passives"],
+            consistencyScore: finalExamples.length > 0 ? 75 : null,
+            completeness,
+          },
+          update: {
+            styleExamples: finalExamples,
+            directness,
+            storytelling,
+            formality,
+            completeness,
+          },
+        });
 
-      await tx.user.update({
-        where: { id: userId },
-        data: { onboardingCompletedAt: new Date() },
-      });
-    });
+        await tx.user.update({
+          where: { id: userId },
+          data: { onboardingCompletedAt: new Date() },
+        });
+      },
+      { timeout: 25000, maxWait: 15000 }
+    );
 
     return NextResponse.json({ success: true, redirect: "/app" });
   } catch (err) {
