@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   User,
+  RotateCcw,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -48,6 +49,26 @@ export function TopNav({
 }: TopNavProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetFlow = async () => {
+    if (
+      !confirm(
+        "Voulez-vous réinitialiser votre profil développeur pour re-tester le flow complet d'Onboarding de zéro ?"
+      )
+    ) {
+      return;
+    }
+    setResetting(true);
+    try {
+      const res = await fetch("/api/dev/reset-flow", { method: "POST" });
+      if (res.ok) {
+        window.location.href = "/onboarding";
+      }
+    } finally {
+      setResetting(false);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur border-b border-line select-none">
@@ -190,6 +211,17 @@ export function TopNav({
                 {user?.name || user?.email || "Mon compte"}
               </span>
             </Link>
+
+            {/* Bouton Dev : Re-tester le flow de zéro */}
+            <button
+              onClick={handleResetFlow}
+              disabled={resetting}
+              title="Mode Dev : Réinitialiser mon profil pour re-tester l'onboarding et les quotas de zéro"
+              className="p-1.5 text-[11px] font-semibold text-mark hover:bg-mark-light/50 border border-mark/25 rounded-input transition-colors cursor-pointer hidden md:inline-flex items-center gap-1"
+            >
+              <RotateCcw className={clsx("w-3 h-3", resetting && "animate-spin")} />
+              <span>Reset Flow</span>
+            </button>
 
             {/* Bouton Déconnexion rapide */}
             <button
