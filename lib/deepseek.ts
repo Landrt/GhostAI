@@ -4,10 +4,20 @@
  * Documentation : https://api.deepseek.com
  */
 
+import dns from "dns";
+
+if (typeof dns !== "undefined" && typeof dns.setDefaultResultOrder === "function") {
+  try {
+    dns.setDefaultResultOrder("ipv4first");
+  } catch {}
+}
+
 const apiKey = process.env.DEEPSEEK_API_KEY || "";
 
 export const isDeepSeekConfigured = Boolean(
-  apiKey && !apiKey.startsWith("dev_") && apiKey.length > 10
+  (process.env.DEEPSEEK_API_KEY || apiKey) &&
+    !(process.env.DEEPSEEK_API_KEY || apiKey).startsWith("dev_") &&
+    (process.env.DEEPSEEK_API_KEY || apiKey).length > 10
 );
 
 export interface DeepSeekMessage {

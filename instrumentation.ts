@@ -1,5 +1,11 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    try {
+      const dns = await import("dns");
+      if (typeof dns.setDefaultResultOrder === "function") {
+        dns.setDefaultResultOrder("ipv4first");
+      }
+    } catch {}
     // Optimisation mémoire : déclenchement d'un ramasse-miettes léger périodique
     // si Node.js est démarré avec l'option --expose-gc.
     // Cela permet de libérer immédiatement les requêtes et tampons réseau,
