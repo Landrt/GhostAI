@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [vector]
 }
 
@@ -328,5 +329,14 @@ model AdminSystemConfig {
   rateLimitDurationHours Int      @default(5)
   rateLimitEnabled       Boolean  @default(true)
   updatedAt              DateTime @updatedAt
+}
+
+model AdminSecurityConfig {
+  id                String    @id @default("default")
+  adminSecretKey    String    @default("ghost-admin-key-2026")
+  adminPasswordHash String?
+  failedAttempts    Int       @default(0)
+  lockedUntil       DateTime?
+  updatedAt         DateTime  @updatedAt
 }
 

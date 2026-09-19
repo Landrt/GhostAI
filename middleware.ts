@@ -101,7 +101,7 @@ export function middleware(req: NextRequest) {
   if (
     shouldAutoBypass &&
     !token &&
-    (pathname.startsWith("/app") || pathname.startsWith("/admin")) &&
+    pathname.startsWith("/app") &&
     !pathname.startsWith("/api/")
   ) {
     const bypassUrl = new URL("/dev-bypass", req.url);
@@ -109,58 +109,99 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(bypassUrl);
   }
 
-  // 1. Protection stricte des routes d'administration /admin/* et /api/admin/*
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    if (!token) {
+  // 1. Protection du Dashboard Admin : Double Sas (Clé secrète d'URL & Mot de passe maître)
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/api/admin") ||
+    pathname === "/admin-vault"
+  ) {
+    // 1.0 Endpoint public de déverrouillage de la clé d'URL
+    if (pathname === "/api/admin/security/unlock") {
+      return NextResponse.next();
+    }
+
+    // 1.1 Si la clé d'accès est fournie dans l'URL (?key=...)
+    const accessKey = req.nextUrl.searchParams.get("key");
+    if (accessKey) {
+      const cleanUrl = pathname === "/admin-vault" ? "/admin" : pathname;
+      const unlockUrl = new URL("/api/admin/security/unlock", req.url);
+      unlockUrl.searchParams.set("key", accessKey);
+      unlockUrl.searchParams.set("callbackUrl", cleanUrl);
+      return NextResponse.redirect(unlockUrl);
+    }
+
+    const hasGateCookie = Boolean(req.cookies.get("ghost_gate_unlocked")?.value);
+    const hasVaultCookie = Boolean(req.cookies.get("ghost_admin_vault")?.value);
+
+    // 1.2 SAS 1 : Camouflage 404 si la porte d'accès n'a pas été déverrouillée par la clé secrète
+    if (!hasGateCookie) {
       if (pathname.startsWith("/api/")) {
-        const jsonResp = NextResponse.json(
-          { error: "Accès refusé. Authentification administrateur requise." },
-          { status: 401 }
-        );
-        for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
-          jsonResp.headers.set(k, v);
-        }
-        jsonResp.headers.set("WWW-Authenticate", 'Bearer realm="admin"');
-        return jsonResp;
+        return NextResponse.json({ error: "Not Found" }, { status: 404 });
       }
 
-      // Pour les interfaces web admin : renvoyer un statut 401 strict pour bloquer les scanners et accès directs
-      const htmlContent = `<!DOCTYPE html>
+      // Fausse page 404 : silence radio complet pour tout visiteur ou scanner
+      const notFoundHtml = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>401 - Accès Refusé | GhostAI Admin</title>
+  <title>404: Cette page est introuvable</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #F5F6F3; color: #211D1A; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
-    .card { background: #FFFFFF; border: 1px solid #DEDAD1; border-radius: 12px; padding: 36px 28px; max-width: 440px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    h1 { font-size: 20px; font-weight: 700; margin: 0 0 8px; color: #211D1A; }
-    p { font-size: 13px; color: #6B6660; line-height: 1.5; margin: 0 0 24px; }
-    .btn { display: inline-block; background: #127749; color: #FFFFFF; padding: 10px 24px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; transition: opacity 0.2s; }
-    .btn:hover { opacity: 0.9; }
+    body { font-family: system-ui, -apple-system, sans-serif; height: 100vh; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; background: #fff; color: #000; }
+    h1 { display: inline-block; margin: 0 20px 0 0; padding: 0 23px 0 0; font-size: 24px; font-weight: 500; vertical-align: top; border-right: 1px solid rgba(0, 0, 0, .3); line-height: 49px; }
+    div { display: inline-block; text-align: left; }
+    h2 { font-size: 14px; font-weight: 400; line-height: 49px; margin: 0; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div style="font-size: 40px; margin-bottom: 12px;">🔒</div>
-    <h1>Accès Refusé (HTTP 401)</h1>
-    <p>Cette section est strictement réservée aux administrateurs authentifiés de GhostAI.</p>
-    <a href="/login?callbackUrl=${encodeURIComponent(pathname)}" class="btn">Se connecter</a>
+  <div>
+    <h1>404</h1>
+    <div>
+      <h2>Cette page est introuvable.</h2>
+    </div>
   </div>
 </body>
 </html>`;
 
-      const deniedResp = new NextResponse(htmlContent, {
-        status: 401,
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "WWW-Authenticate": 'Bearer realm="admin"',
-        },
+      const notFoundResp = new NextResponse(notFoundHtml, {
+        status: 404,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
       });
       for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
-        deniedResp.headers.set(k, v);
+        notFoundResp.headers.set(k, v);
       }
-      return deniedResp;
+      return notFoundResp;
+    }
+
+    // 1.3 SAS 2 : Sas de Mot de Passe Maître (Vault)
+    const isLoginVaultPage = pathname === "/admin-vault";
+    const isSecurityApi = pathname.startsWith("/api/admin/security");
+
+    if (!hasVaultCookie && !isLoginVaultPage && !isSecurityApi) {
+      const vaultUrl = new URL("/admin-vault", req.url);
+      vaultUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(vaultUrl);
+    }
+
+    // Si le vault est déjà déverrouillé et qu'on tente d'accéder à /admin-vault, rediriger vers /admin
+    if (hasVaultCookie && isLoginVaultPage) {
+      return NextResponse.redirect(new URL("/admin", req.url));
+    }
+
+    // 1.4 Vérification de la session utilisateur admin (si la porte et le vault sont franchis)
+    if (!token && !isLoginVaultPage && !isSecurityApi) {
+      if (shouldAutoBypass) {
+        const bypassUrl = new URL("/dev-bypass", req.url);
+        bypassUrl.searchParams.set("callbackUrl", pathname);
+        return NextResponse.redirect(bypassUrl);
+      }
+
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Authentification requise." }, { status: 401 });
+      }
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
     }
   }
 
